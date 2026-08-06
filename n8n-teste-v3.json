@@ -28,7 +28,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM schema_v3.buscar_clique_orfao('{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}'::TEXT, 2, 5)"
+        "query": "SELECT * FROM schema_v3.buscar_clique_orfao('{{ ($node[\"Extrair Dados Z-API\"].json.chatlid || '').replace(/@.+$/, '') }}'::TEXT, 2, 5)"
       },
       "id": "buscar_clique_orfao",
       "name": "Buscar Clique Orfão (timing + chatlid)",
@@ -69,7 +69,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM schema_v3.registrar_match_clique('{{ $node[\"Extrair Tracking\"].json.ref_id }}'::TEXT, '{{ $node[\"Extrair Dados Z-API\"].json.telefone }}'::TEXT, '{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}'::TEXT)"
+        "query": "SELECT * FROM schema_v3.registrar_match_clique('{{ $node[\"Extrair Tracking\"].json.ref_id }}'::TEXT, '{{ $node[\"Extrair Dados Z-API\"].json.telefone }}'::TEXT, '{{ ($node[\"Extrair Dados Z-API\"].json.chatlid || '').replace(/@.+$/, '') }}'::TEXT)"
       },
       "id": "registrar_match",
       "name": "Registrar Match no Cliques",
