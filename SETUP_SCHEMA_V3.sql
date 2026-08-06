@@ -45,6 +45,71 @@ BEGIN
   RAISE NOTICE 'Tabela cliques_landing criada/já existe';
 
   -- ====================================================================
+  -- 2b. Criar tabela conversas_leads (CRM do lead)
+  -- ====================================================================
+  EXECUTE format($f$
+    CREATE TABLE IF NOT EXISTS %I.conversas_leads (
+      id                 BIGSERIAL PRIMARY KEY,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+      chatlid            VARCHAR(255) UNIQUE NOT NULL,
+      telefone           VARCHAR(50),
+      nome               VARCHAR(255),
+      ctwa_clid          VARCHAR(100),
+      origem_lead        VARCHAR(50),
+      anuncio_id         VARCHAR(100),
+      adset_id           VARCHAR(100),
+      campanha_id        VARCHAR(100),
+      campanha_nome      VARCHAR(255),
+      etapa              VARCHAR(100),
+      status_conversacao VARCHAR(50),
+      ultima_interacao   TIMESTAMPTZ,
+      notas              TEXT
+    )
+  $f$, v_schema);
+  RAISE NOTICE 'Tabela conversas_leads criada/já existe';
+
+  -- ====================================================================
+  -- 2c. Criar tabela orcamentos (conversões)
+  -- ====================================================================
+  EXECUTE format($f$
+    CREATE TABLE IF NOT EXISTS %I.orcamentos (
+      id                 BIGSERIAL PRIMARY KEY,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+      numero_orcamento   VARCHAR(100) UNIQUE NOT NULL,
+      telefone           VARCHAR(50),
+      session_id         VARCHAR(255),
+      ctwa_clid          VARCHAR(100),
+      chatlid            VARCHAR(255),
+      anuncio_id         VARCHAR(100),
+      adset_id           VARCHAR(100),
+      campanha_id        VARCHAR(100),
+      campanha_nome      VARCHAR(255),
+      campanha_objetivo  VARCHAR(100),
+      destination_type   VARCHAR(100),
+      valor              NUMERIC(15,2),
+      status_orcamento   VARCHAR(50),
+      data_fechamento    TIMESTAMPTZ,
+      notas              TEXT
+    )
+  $f$, v_schema);
+  RAISE NOTICE 'Tabela orcamentos criada/já existe';
+
+  -- ====================================================================
+  -- 2d. Criar tabela messages em public (para langchain)
+  -- ====================================================================
+  EXECUTE format($f$
+    CREATE TABLE IF NOT EXISTS public.%I (
+      message_id         VARCHAR(255) PRIMARY KEY,
+      session_id         VARCHAR(255) NOT NULL,
+      type               VARCHAR(50),
+      data               JSONB,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at         TIMESTAMPTZ DEFAULT now()
+    )
+  $f$, v_schema || '_messages');
+  RAISE NOTICE 'Tabela public.%I criada/já existe', v_schema || '_messages';
+
+  -- ====================================================================
   -- 3. Criar índices para performance
   -- ====================================================================
   EXECUTE format(
@@ -61,6 +126,24 @@ BEGIN
     'CREATE INDEX IF NOT EXISTS idx_cliques_landing_clique ON %I.cliques_landing (created_at DESC) WHERE clicou_wpp_at IS NOT NULL',
     v_schema);
   RAISE NOTICE 'Índice cliques criado';
+
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_conversas_leads_chatlid ON %I.conversas_leads (chatlid)',
+    v_schema);
+  RAISE NOTICE 'Índice conversas_leads.chatlid criado';
+
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_conversas_leads_telefone ON %I.conversas_leads (telefone)',
+    v_schema);
+  RAISE NOTICE 'Índice conversas_leads.telefone criado';
+
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_orcamentos_numero ON %I.orcamentos (numero_orcamento)',
+    v_schema);
+  RAISE NOTICE 'Índice orcamentos.numero_orcamento criado';
+
+  CREATE INDEX IF NOT EXISTS idx_messages_session ON public.schema_v3_messages (session_id);
+  RAISE NOTICE 'Índice public.schema_v3_messages.session_id criado';
 
   -- ====================================================================
   -- 4. RPC: registrar_pageview_landing
@@ -306,12 +389,16 @@ BEGIN
   RAISE NOTICE '========================================';
   RAISE NOTICE 'Schema % setup completo! ✅', v_schema;
   RAISE NOTICE '========================================';
-  RAISE NOTICE 'Tabela: cliques_landing';
-  RAISE NOTICE 'RPCs: 6 funções criadas';
-  RAISE NOTICE 'Índices: 3 índices criados';
+  RAISE NOTICE 'Tabelas criadas:';
+  RAISE NOTICE '  - schema_v3.cliques_landing';
+  RAISE NOTICE '  - schema_v3.conversas_leads';
+  RAISE NOTICE '  - schema_v3.orcamentos';
+  RAISE NOTICE '  - public.schema_v3_messages (langchain)';
   RAISE NOTICE '';
-  RAISE NOTICE 'Próximo passo: Agora teste a landing page!';
-  RAISE NOTICE 'URL: http://localhost:3000 (desenvolvimento)';
+  RAISE NOTICE 'RPCs: 6 funções criadas';
+  RAISE NOTICE 'Índices: 7 índices criados';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Próximo passo: Teste a landing page + n8n webhook!';
   RAISE NOTICE '========================================';
 
 END;
