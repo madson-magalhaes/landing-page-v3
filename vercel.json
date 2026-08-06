@@ -1,0 +1,14 @@
+{
+  "name": "lp-v3",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_META_PIXEL_ID": "@next_public_meta_pixel_id",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "NEXT_PUBLIC_SCHEMA_ID": "@next_public_schema_id",
+    "NEXT_PUBLIC_WHATSAPP_NUMBER": "@next_public_whatsapp_number",
+    "NEXT_PUBLIC_WHATSAPP_MESSAGE": "@next_public_whatsapp_message",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
+  }
+}
