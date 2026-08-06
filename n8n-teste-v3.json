@@ -114,7 +114,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validar se é tráfego pago (fbclid_existe = true)\nconst tracking = $node[\"Extrair Tracking\"].json || {};\n\nif (!tracking.fbclid_existe) {\n  console.log('🌐 Tráfego ORGÂNICO - NÃO enviará para Meta CAPI');\n  return { skipped: true, motivo: 'trafego_organico' };\n}\n\nconsole.log('💰 Tráfego PAGO - Enviará para Meta CAPI');\nreturn { skipped: false };"
+        "jsCode": "// Validação primária: adContext.entryPointConversionSource\nconst adContext = $node[\"Extrair Dados Z-API\"].json.adContext || {};\nconst isTrafficFromMeta = adContext.entryPointConversionSource === \"click_to_chat_link\";\n\n// Validação secundária: fbclid (double-check)\nconst tracking = $node[\"Extrair Tracking\"].json || {};\nconst hasFbclid = tracking.fbclid_existe === true;\n\n// É tráfego pago se AMBOS confirmam\nconst isPaidTraffic = isTrafficFromMeta && hasFbclid;\n\nif (!isPaidTraffic) {\n  const reason = !isTrafficFromMeta ? 'adContext_vazio' : 'fbclid_ausente';\n  console.log(`🌐 Tráfego ORGÂNICO (${reason}) - NÃO enviará para Meta CAPI`);\n  return { skipped: true, motivo: 'trafego_organico', reason };\n}\n\nconsole.log('💰 Tráfego PAGO (adContext + fbclid confirmado) - Enviará para Meta CAPI');\nreturn { skipped: false };"
       },
       "id": "validar_fbclid",
       "name": "Validar: É Tráfego Pago?",
