@@ -1,27 +1,10 @@
-function getEnv(key: string): string {
-  if (typeof window === "undefined") return "";
-  return (globalThis as any)[`__ENV_${key}`] || "";
-}
-
 export const config = {
-  get metaPixelId() {
-    return process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
-  },
-  get supabaseUrl() {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  },
-  get supabaseAnonKey() {
-    return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  },
-  get schemaId() {
-    return process.env.NEXT_PUBLIC_SCHEMA_ID ?? "";
-  },
-  get whatsappNumber() {
-    return process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "";
-  },
-  get whatsappMessage() {
-    return process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE ?? "Quero saber mais";
-  },
+  metaPixelId: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "",
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  schemaId: process.env.NEXT_PUBLIC_SCHEMA_ID ?? "",
+  whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "",
+  whatsappMessage: process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE ?? "Quero saber mais",
 } as const;
 
 export function isPixelConfigured(): boolean {

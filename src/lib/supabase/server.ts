@@ -1,23 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
-import { config } from "@/lib/config";
+import "server-only";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let adminClient: ReturnType<typeof createClient> | null = null;
+let cached: SupabaseClient | null = null;
 
-export function getSupabaseAdmin() {
-  if (adminClient) return adminClient;
+export function getSupabaseAdmin(): SupabaseClient {
+  if (cached) return cached;
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!serviceRoleKey) {
+  if (!url || !serviceRoleKey) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY não configurada. Configure em Vercel > Settings > Environment Variables",
+      "NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados. Ver .env.example.",
     );
   }
 
-  adminClient = createClient(config.supabaseUrl, serviceRoleKey);
-  return adminClient;
-}
-
-export function getSupabaseClient() {
-  return createClient(config.supabaseUrl, config.supabaseAnonKey);
+  cached = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return cached;
 }
