@@ -90,9 +90,21 @@ BEGIN
   $f$, v_schema);
   RAISE NOTICE 'Tabela conversas_leads criada/já existe (id = chatlid)';
 
-  -- Garantir que session_id existe (para compatibilidade com versões antigas)
+  -- Garantir que colunas existem (para compatibilidade com versões antigas)
   BEGIN
     EXECUTE format('ALTER TABLE %I.conversas_leads ADD COLUMN session_id VARCHAR(255)', v_schema);
+  EXCEPTION WHEN duplicate_column THEN
+    NULL;
+  END;
+
+  BEGIN
+    EXECUTE format('ALTER TABLE %I.conversas_leads ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT ''ativo''', v_schema);
+  EXCEPTION WHEN duplicate_column THEN
+    NULL;
+  END;
+
+  BEGIN
+    EXECUTE format('ALTER TABLE %I.conversas_leads ADD COLUMN origem_lead_original VARCHAR(50)', v_schema);
   EXCEPTION WHEN duplicate_column THEN
     NULL;
   END;
