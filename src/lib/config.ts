@@ -1,10 +1,17 @@
+/**
+ * Config pública do tenant. Nesta etapa é lida de env vars locais; quando o
+ * Supabase entrar, isto vira um fetch em core.tenants (ARQ_02 §5,
+ * GET /api/tenant/:id) — nunca retornando token CAPI, só o que já é público
+ * no HTML de qualquer forma (ARQ_04 §3.2).
+ */
+
 export const config = {
   metaPixelId: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "",
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-  schemaId: process.env.NEXT_PUBLIC_SCHEMA_ID ?? "",
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "",
-  whatsappMessage: process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE ?? "Quero saber mais",
+  whatsappMessage:
+    process.env.NEXT_PUBLIC_WHATSAPP_MESSAGE ?? "Quero saber mais",
+  // Schema do cliente (v2 schema-per-client). Ex: schema_test, eng_pratice
+  schemaId: process.env.NEXT_PUBLIC_SCHEMA_ID ?? "",
 } as const;
 
 export function isPixelConfigured(): boolean {

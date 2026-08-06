@@ -6,8 +6,13 @@ import { config, isPixelConfigured } from "@/lib/config";
 import { generateRefId } from "@/lib/tracking/refId";
 import type { PageviewPayload } from "@/types/tracking";
 
-const REF_ID_STORAGE_KEY = "lp_ref_id_v3";
+const REF_ID_STORAGE_KEY = "lp_ref_id";
 
+/**
+ * Garante um único ref_id por sessão de navegador (sessionStorage), para que
+ * PageView e Lead da mesma visita usem o mesmo identificador —
+ * é isso que permite reconstruir a jornada depois (ARQ_02 §8).
+ */
 export function getOrCreateRefId(): string {
   if (typeof window === "undefined") return generateRefId();
   const existing = window.sessionStorage.getItem(REF_ID_STORAGE_KEY);
@@ -23,6 +28,15 @@ function readCookie(name: string): string | null {
   return value ? decodeURIComponent(value) : null;
 }
 
+/**
+ * O <Script afterInteractive> que carrega fbevents.js (e cria o cookie _fbc
+ * a partir do fbclid da URL) roda de forma assíncrona, sem sincronia com
+ * este useEffect — na prática o cookie muitas vezes ainda não existe quando
+ * lemos, mesmo com fbclid presente na URL (confirmado em teste real: clique
+ * de anúncio real gerou fbclid mas fbc chegou NULL no banco). Constrói o
+ * mesmo formato que o Pixel usaria (fb.1.<epoch_ms>.<fbclid>, documentado
+ * pela Meta) como fallback — nunca perde o dado por timing de script externo.
+ */
 function resolveFbc(fbclid: string | null): string | null {
   const existing = readCookie("_fbc");
   if (existing) return existing;
@@ -30,15 +44,24 @@ function resolveFbc(fbclid: string | null): string | null {
   return `fb.1.${Date.now()}.${fbclid}`;
 }
 
+/** Garantir que tabela existe (migração auto) */
+async function ensureMigrationDone(): Promise<void> {
+  try {
+    await fetch("/api/migrate", { method: "POST" });
+  } catch {
+    // Erro na migração é não-fatal
+  }
+}
+
+/** É aqui que a linha em cliques_landing NASCE — ver /api/pageview. */
 async function registrarPageview(payload: PageviewPayload): Promise<void> {
   try {
-    const res = await fetch("/api/pageview", {
+    await fetch("/api/pageview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       keepalive: true,
     });
-    console.log("[pageview]", `status ${res.status}`);
   } catch (err) {
     console.warn("[pageview] falha ao registrar", err);
   }
@@ -51,11 +74,15 @@ export function MetaPixel() {
     if (firedRef.current) return;
     if (!isPixelConfigured()) {
       console.warn(
-        "[pixel] NEXT_PUBLIC_META_PIXEL_ID não configurado — PageView não será disparado.",
+        "[pixel] NEXT_PUBLIC_META_PIXEL_ID não configurado — PageView não será disparado. " +
+          "Ver .env.example.",
       );
       return;
     }
     firedRef.current = true;
+
+    // Garantir que tabela existe (migração auto)
+    void ensureMigrationDone();
 
     const refId = getOrCreateRefId();
     const params = new URLSearchParams(window.location.search);
@@ -96,6 +123,7 @@ export function MetaPixel() {
         `}
       </Script>
       <noscript>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           height="1"
           width="1"
