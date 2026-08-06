@@ -90,6 +90,13 @@ BEGIN
   $f$, v_schema);
   RAISE NOTICE 'Tabela conversas_leads criada/já existe (id = chatlid)';
 
+  -- Garantir que session_id existe (para compatibilidade com versões antigas)
+  BEGIN
+    EXECUTE format('ALTER TABLE %I.conversas_leads ADD COLUMN session_id VARCHAR(255)', v_schema);
+  EXCEPTION WHEN duplicate_column THEN
+    NULL;
+  END;
+
   -- ====================================================================
   -- 2d. Criar tabela orcamentos (conversões)
   -- ====================================================================
