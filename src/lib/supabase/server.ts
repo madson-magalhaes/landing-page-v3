@@ -2,9 +2,12 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "@/lib/config";
 
 export function getSupabaseAdmin() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-  if (!serviceRoleKey.trim()) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY não configurada");
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceRoleKey) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY não configurada. Configure em Vercel > Settings > Environment Variables",
+    );
   }
 
   return createClient(config.supabaseUrl, serviceRoleKey);
