@@ -74,6 +74,7 @@ BEGIN
       last_message_at    TIMESTAMPTZ,
       ctwa_clid          VARCHAR(100),
       origem_lead        VARCHAR(50),
+      origem_lead_original VARCHAR(50),
       anuncio_id         VARCHAR(100),
       anuncio_nome       VARCHAR(255),
       adset_id           VARCHAR(100),
@@ -258,7 +259,7 @@ BEGIN
     ) AS $FUNC$
     BEGIN
       -- Verificar: este chatlid JÁ existe em conversas_leads? (se sim, é recorrente)
-      IF EXISTS(SELECT 1 FROM %I.conversas_leads WHERE chatlid = p_chatlid LIMIT 1) THEN
+      IF EXISTS(SELECT 1 FROM %I.conversas_leads WHERE id = p_chatlid LIMIT 1) THEN
         -- Lead recorrente: buscar com janela maior (até 5min para dar mais tempo)
         RETURN QUERY
         SELECT
