@@ -60,27 +60,34 @@ BEGIN
 
   -- ====================================================================
   -- 2c. Criar tabela conversas_leads (CRM do lead)
+  -- Padrão v.3.4: chatlid é a PRIMARY KEY (id)
   -- ====================================================================
   EXECUTE format($f$
     CREATE TABLE IF NOT EXISTS %I.conversas_leads (
-      id                 BIGSERIAL PRIMARY KEY,
+      id                 VARCHAR(255) PRIMARY KEY,
       created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-      chatlid            VARCHAR(255) UNIQUE NOT NULL,
+      session_id         VARCHAR(255),
       telefone           VARCHAR(50),
       nome               VARCHAR(255),
+      mensagem           TEXT,
+      status             VARCHAR(50) NOT NULL DEFAULT 'ativo',
+      last_message_at    TIMESTAMPTZ,
       ctwa_clid          VARCHAR(100),
       origem_lead        VARCHAR(50),
       anuncio_id         VARCHAR(100),
+      anuncio_nome       VARCHAR(255),
       adset_id           VARCHAR(100),
+      adset_nome         VARCHAR(255),
       campanha_id        VARCHAR(100),
       campanha_nome      VARCHAR(255),
-      etapa              VARCHAR(100),
-      status_conversacao VARCHAR(50),
-      ultima_interacao   TIMESTAMPTZ,
+      campanha_objetivo  VARCHAR(100),
+      destination_type   VARCHAR(100),
+      etapa              VARCHAR(100) NOT NULL DEFAULT 'inicio',
+      timeout            TEXT,
       notas              TEXT
     )
   $f$, v_schema);
-  RAISE NOTICE 'Tabela conversas_leads criada/já existe';
+  RAISE NOTICE 'Tabela conversas_leads criada/já existe (id = chatlid)';
 
   -- ====================================================================
   -- 2d. Criar tabela orcamentos (conversões)
@@ -142,14 +149,19 @@ BEGIN
   RAISE NOTICE 'Índice cliques criado';
 
   EXECUTE format(
-    'CREATE INDEX IF NOT EXISTS idx_conversas_leads_chatlid ON %I.conversas_leads (chatlid)',
+    'CREATE INDEX IF NOT EXISTS idx_conversas_leads_session_id ON %I.conversas_leads (session_id)',
     v_schema);
-  RAISE NOTICE 'Índice conversas_leads.chatlid criado';
+  RAISE NOTICE 'Índice conversas_leads.session_id criado';
 
   EXECUTE format(
     'CREATE INDEX IF NOT EXISTS idx_conversas_leads_telefone ON %I.conversas_leads (telefone)',
     v_schema);
   RAISE NOTICE 'Índice conversas_leads.telefone criado';
+
+  EXECUTE format(
+    'CREATE INDEX IF NOT EXISTS idx_conversas_leads_status ON %I.conversas_leads (status)',
+    v_schema);
+  RAISE NOTICE 'Índice conversas_leads.status criado';
 
   EXECUTE format(
     'CREATE INDEX IF NOT EXISTS idx_orcamentos_numero ON %I.orcamentos (numero_orcamento)',
