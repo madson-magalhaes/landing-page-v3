@@ -1,5 +1,12 @@
 {
-  "_comment": "Exemplo de payload que Z-API envia para o webhook n8n. O n8n irá cruzar com schema_v3.cliques_landing usando telefone + timing",
+  "_comment": "Payload REAL que Z-API envia para o webhook n8n (testado 2026-08-06)",
+  "_estrutura_z_api": {
+    "body.phone": "telefone do lead (ex: 558599064684)",
+    "body.chatLid": "ID único da conversa no WhatsApp (ex: 245612016627760@lid)",
+    "body.text.message": "mensagem enviada pelo lead",
+    "body.senderName": "nome do lead no WhatsApp",
+    "body.momment": "timestamp em ms (ex: 1786044676000)"
+  },
   "_flow": [
     "1. Z-API recebe mensagem do WhatsApp",
     "2. Z-API envia para webhook n8n com: chatlid, telefone, nome, mensagem",
@@ -20,19 +27,37 @@
     "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15",
     "client_ip": "177.44.177.245"
   },
-  "webhook_z_api_payload": {
-    "chatlid": "558899675864701@c.us",
-    "telefone": "5588996758647",
-    "nome": "João Silva",
-    "mensagem": "Quero saber mais sobre os serviços"
+  "webhook_z_api_payload_real": {
+    "body": {
+      "phone": "558599064684",
+      "chatLid": "245612016627760@lid",
+      "senderName": "Madson Magalhães",
+      "text": {
+        "message": "vim do anuncio"
+      },
+      "momment": 1786044676000,
+      "connectedPhone": "558896758647",
+      "instanceId": "3F5C4E37E5C1A13B508BD2DF1892F2BA",
+      "messageId": "3BC6BA0849A1398F6FC9",
+      "adContext": {
+        "entryPointConversionSource": "click_to_chat_link"
+      }
+    }
   },
   "n8n_processa_assim": {
-    "step_1_normalizar": {
-      "entrada": "5588996758647",
-      "saída": "5588996758647",
-      "descricao": "Remove caracteres especiais, deixa só dígitos"
+    "step_1_extrair_dados": {
+      "body_phone": "558599064684",
+      "body_chatLid": "245612016627760@lid",
+      "body_senderName": "Madson Magalhães",
+      "body_text_message": "vim do anuncio",
+      "descricao": "Extrai do webhook da Z-API"
     },
-    "step_2_buscar_clique_orfao": {
+    "step_2_normalizar": {
+      "entrada": "558599064684",
+      "saída": "558599064684",
+      "descricao": "Remove caracteres especiais, deixa só dígitos (já vem limpo da Z-API)"
+    },
+    "step_3_buscar_clique_orfao": {
       "query": "SELECT ref_id, fbclid, fbc, fbp, utm_campaign FROM schema_v3.cliques_landing WHERE clicou_wpp_at IS NOT NULL AND telefone IS NULL AND created_at >= NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1",
       "resultado": {
         "ref_id": "LPMSHW6C5AC39",
@@ -42,13 +67,13 @@
         "utm_campaign": null
       }
     },
-    "step_3_validar_fbclid": {
+    "step_4_validar_fbclid": {
       "condicao": "IF fbclid IS NOT NULL THEN pago ELSE organico",
       "neste_exemplo": "pago (fbclid tem valor)",
       "acao_pago": "Preparar e enviar CAPI Lead",
       "acao_organico": "Pular CAPI, apenas salvar em conversas_leads"
     },
-    "step_4_registrar_match": {
+    "step_5_registrar_match": {
       "tabela": "schema_v3.cliques_landing",
       "update": {
         "telefone": "5588996758647",
@@ -57,7 +82,7 @@
         "match_metodo": "telefone_timing_manual"
       }
     },
-    "step_5_inserir_conversas_leads": {
+    "step_6_inserir_conversas_leads": {
       "tabela": "schema_v3.conversas_leads",
       "dados": {
         "chatlid": "558899675864701@c.us",
@@ -69,7 +94,7 @@
         "mensagem_inicial": "Quero saber mais sobre os serviços"
       }
     },
-    "step_6_preparar_capi_lead": {
+    "step_7_preparar_capi_lead": {
       "condicao": "IF fbclid NOT NULL",
       "evento": {
         "event_name": "Lead",
@@ -85,7 +110,7 @@
         "action_source": "website"
       }
     },
-    "step_7_enviar_capi": {
+    "step_8_enviar_capi": {
       "url": "https://graph.facebook.com/v19.0/{PIXEL_ID}/events",
       "metodo": "POST",
       "headers": {
