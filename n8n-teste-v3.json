@@ -27,29 +27,20 @@
     },
     {
       "parameters": {
-        "host": "{{ $env.SUPABASE_URL }}",
-        "authentication": "bearerToken",
-        "credentials": {
-          "bearerToken": "{{ $env.SUPABASE_ANON_KEY }}"
-        },
-        "method": "POST",
-        "path": "/rest/v1/rpc/buscar_clique_orfao",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "p_chatlid",
-              "value": "{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}"
-            }
-          ]
-        },
-        "options": {}
+        "operation": "executeQuery",
+        "query": "SELECT * FROM schema_v3.buscar_clique_orfao($1::TEXT, 2, 5)",
+        "queryParameters": [
+          "{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}"
+        ]
       },
       "id": "buscar_clique_orfao",
       "name": "Buscar Clique Orfão (timing + chatlid)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [450, 200]
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [450, 200],
+      "credentials": {
+        "postgres": "supabase_postgres"
+      }
     },
     {
       "parameters": {
@@ -70,7 +61,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const tracking = $node[\"Buscar Clique Orfão (timing + chatlid)\"].json[0] || {};\nconst chatlid = $node[\"Extrair Dados Z-API\"].json.chatlid;\n\n// Se chegou aqui = clique foi encontrado\nreturn {\n  ref_id: tracking.ref_id,\n  fbclid: tracking.fbclid,\n  fbc: tracking.fbc,\n  fbp: tracking.fbp,\n  utm_campaign: tracking.utm_campaign,\n  fbclid_existe: tracking.fbclid_existe,\n  match_qual: tracking.match_qual || 'desconhecido'\n};"
+        "jsCode": "// Resultado do Postgres vem como array de rows\nconst rows = $node[\"Buscar Clique Orfão (timing + chatlid)\"].json;\nconst tracking = (rows && rows.length > 0) ? rows[0] : {};\n\n// Se chegou aqui = clique foi encontrado\nreturn {\n  ref_id: tracking.ref_id || null,\n  fbclid: tracking.fbclid || null,\n  fbc: tracking.fbc || null,\n  fbp: tracking.fbp || null,\n  utm_campaign: tracking.utm_campaign || null,\n  fbclid_existe: tracking.fbclid_existe || false,\n  match_qual: tracking.match_qual || 'desconhecido'\n};"
       },
       "id": "extrair_tracking",
       "name": "Extrair Dados de Tracking",
@@ -80,37 +71,22 @@
     },
     {
       "parameters": {
-        "host": "{{ $env.SUPABASE_URL }}",
-        "authentication": "bearerToken",
-        "credentials": {
-          "bearerToken": "{{ $env.SUPABASE_ANON_KEY }}"
-        },
-        "method": "POST",
-        "path": "/rest/v1/rpc/registrar_match_clique",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "p_ref_id",
-              "value": "{{ $node[\"Extrair Tracking\"].json.ref_id }}"
-            },
-            {
-              "name": "p_telefone",
-              "value": "{{ $node[\"Extrair Dados Z-API\"].json.telefone }}"
-            },
-            {
-              "name": "p_session_id",
-              "value": "{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}"
-            }
-          ]
-        },
-        "options": {}
+        "operation": "executeQuery",
+        "query": "SELECT * FROM schema_v3.registrar_match_clique($1::TEXT, $2::TEXT, $3::TEXT)",
+        "queryParameters": [
+          "{{ $node[\"Extrair Tracking\"].json.ref_id }}",
+          "{{ $node[\"Extrair Dados Z-API\"].json.telefone }}",
+          "{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}"
+        ]
       },
       "id": "registrar_match",
       "name": "Registrar Match no Cliques",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [850, 300]
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [850, 300],
+      "credentials": {
+        "postgres": "supabase_postgres"
+      }
     },
     {
       "parameters": {
