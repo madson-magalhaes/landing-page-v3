@@ -1,7 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { config } from "@/lib/config";
 
+let adminClient: ReturnType<typeof createClient> | null = null;
+
 export function getSupabaseAdmin() {
+  if (adminClient) return adminClient;
+
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
@@ -10,7 +14,8 @@ export function getSupabaseAdmin() {
     );
   }
 
-  return createClient(config.supabaseUrl, serviceRoleKey);
+  adminClient = createClient(config.supabaseUrl, serviceRoleKey);
+  return adminClient;
 }
 
 export function getSupabaseClient() {
