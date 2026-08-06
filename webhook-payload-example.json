@@ -1,0 +1,106 @@
+{
+  "_comment": "Exemplo de payload que Z-API envia para o webhook n8n. O n8n irá cruzar com schema_v3.cliques_landing usando telefone + timing",
+  "_flow": [
+    "1. Z-API recebe mensagem do WhatsApp",
+    "2. Z-API envia para webhook n8n com: chatlid, telefone, nome, mensagem",
+    "3. n8n normaliza telefone (remove caracteres especiais)",
+    "4. n8n busca clique orfão em schema_v3.cliques_landing (WHERE telefone IS NULL AND clicou_wpp_at IS NOT NULL AND created_at >= NOW() - 15min)",
+    "5. n8n encontra ref_id do clique + fbclid + fbc + fbp",
+    "6. Se fbclid ≠ NULL (pago): prepara e envia CAPI Lead para Meta",
+    "7. n8n atualiza conversas_leads com origem_lead diferenciada",
+    "8. Próximos eventos (InitiateCheckout, Purchase) usam mesmos dados de rastreamento"
+  ],
+  "_dados_reais_capturados": {
+    "ref_id": "LPMSHW6C5AC39",
+    "fbclid": "IwcGRvZgRleHRuA2FlbQIxMQBzcnRjBmFwcF9pZAwyNTYyODEwNDA1NTgAAR...",
+    "fbc": "fb.2.1786043484495.IwcGRv...",
+    "fbp": "fb.2.1786043484499.53336726783520465",
+    "evento_type": "clique",
+    "clicou_wpp_at": "2026-08-06 19:11:31.0998+00",
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5.2 Safari/605.1.15",
+    "client_ip": "177.44.177.245"
+  },
+  "webhook_z_api_payload": {
+    "chatlid": "558899675864701@c.us",
+    "telefone": "5588996758647",
+    "nome": "João Silva",
+    "mensagem": "Quero saber mais sobre os serviços"
+  },
+  "n8n_processa_assim": {
+    "step_1_normalizar": {
+      "entrada": "5588996758647",
+      "saída": "5588996758647",
+      "descricao": "Remove caracteres especiais, deixa só dígitos"
+    },
+    "step_2_buscar_clique_orfao": {
+      "query": "SELECT ref_id, fbclid, fbc, fbp, utm_campaign FROM schema_v3.cliques_landing WHERE clicou_wpp_at IS NOT NULL AND telefone IS NULL AND created_at >= NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1",
+      "resultado": {
+        "ref_id": "LPMSHW6C5AC39",
+        "fbclid": "IwcGRvZgRleHRuA2FlbQIxMQBzcnRjBmFwcF9pZAwyNTYyODEwNDA1NTgAAR...",
+        "fbc": "fb.2.1786043484495.IwcGRv...",
+        "fbp": "fb.2.1786043484499.53336726783520465",
+        "utm_campaign": null
+      }
+    },
+    "step_3_validar_fbclid": {
+      "condicao": "IF fbclid IS NOT NULL THEN pago ELSE organico",
+      "neste_exemplo": "pago (fbclid tem valor)",
+      "acao_pago": "Preparar e enviar CAPI Lead",
+      "acao_organico": "Pular CAPI, apenas salvar em conversas_leads"
+    },
+    "step_4_registrar_match": {
+      "tabela": "schema_v3.cliques_landing",
+      "update": {
+        "telefone": "5588996758647",
+        "session_id": "558899675864701@c.us",
+        "matched_at": "NOW()",
+        "match_metodo": "telefone_timing_manual"
+      }
+    },
+    "step_5_inserir_conversas_leads": {
+      "tabela": "schema_v3.conversas_leads",
+      "dados": {
+        "chatlid": "558899675864701@c.us",
+        "telefone": "5588996758647",
+        "nome": "João Silva",
+        "ctwa_clid": "LPMSHW6C5AC39",
+        "origem_lead": "landing_whatsapp",
+        "etapa": "inicio",
+        "mensagem_inicial": "Quero saber mais sobre os serviços"
+      }
+    },
+    "step_6_preparar_capi_lead": {
+      "condicao": "IF fbclid NOT NULL",
+      "evento": {
+        "event_name": "Lead",
+        "event_time": "Math.floor(Date.now() / 1000)",
+        "user_data": {
+          "ph": "SHA256('5588996758647')",
+          "fbc": "fb.2.1786043484495.IwcGRv...",
+          "fbp": "fb.2.1786043484499.53336726783520465"
+        },
+        "custom_data": {
+          "content_name": "Lead de João Silva"
+        },
+        "action_source": "website"
+      }
+    },
+    "step_7_enviar_capi": {
+      "url": "https://graph.facebook.com/v19.0/{PIXEL_ID}/events",
+      "metodo": "POST",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "evento preparado no step_6",
+      "condicao": "IF fbclid IS NOT NULL AND payload.skipped ≠ true"
+    }
+  },
+  "_notas_importantes": {
+    "1_telefone": "Sempre normalizar (só dígitos, sem caracteres especiais)",
+    "2_timing": "Buscar cliques até 15min atrás (janela de matching)",
+    "3_fbclid": "Se NULL = orgânico, NÃO envia para Meta CAPI",
+    "4_sha256": "Telefone deve ser hasheado ANTES de enviar para Meta",
+    "5_origem_lead": "Diferencia 'landing_whatsapp' (pago) vs 'whatsapp_organico' (sem fbclid)",
+    "6_proximos_eventos": "InitiateCheckout e Purchase usam mesmos fbc/fbp/ph do Lead"
+  }
+}
