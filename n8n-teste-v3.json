@@ -241,11 +241,6 @@
       "main": [
         [
           {
-            "node": "Extrair Tracking",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Registrar Match no Cliques",
             "type": "main",
             "index": 0
@@ -275,7 +270,7 @@
       "main": [
         [
           {
-            "node": "Validar: É Tráfego Pago?",
+            "node": "Extrair Tracking",
             "type": "main",
             "index": 0
           }
