@@ -45,7 +45,21 @@ BEGIN
   RAISE NOTICE 'Tabela cliques_landing criada/já existe';
 
   -- ====================================================================
-  -- 2b. Criar tabela conversas_leads (CRM do lead)
+  -- 2b. Criar tabela configuracoes (API keys e settings)
+  -- ====================================================================
+  EXECUTE format($f$
+    CREATE TABLE IF NOT EXISTS %I.configuracoes (
+      chave             VARCHAR(100) PRIMARY KEY,
+      valor             TEXT NOT NULL,
+      descricao         TEXT,
+      created_at        TIMESTAMPTZ DEFAULT now(),
+      updated_at        TIMESTAMPTZ DEFAULT now()
+    )
+  $f$, v_schema);
+  RAISE NOTICE 'Tabela configuracoes criada/já existe';
+
+  -- ====================================================================
+  -- 2c. Criar tabela conversas_leads (CRM do lead)
   -- ====================================================================
   EXECUTE format($f$
     CREATE TABLE IF NOT EXISTS %I.conversas_leads (
@@ -69,7 +83,7 @@ BEGIN
   RAISE NOTICE 'Tabela conversas_leads criada/já existe';
 
   -- ====================================================================
-  -- 2c. Criar tabela orcamentos (conversões)
+  -- 2d. Criar tabela orcamentos (conversões)
   -- ====================================================================
   EXECUTE format($f$
     CREATE TABLE IF NOT EXISTS %I.orcamentos (
@@ -95,7 +109,7 @@ BEGIN
   RAISE NOTICE 'Tabela orcamentos criada/já existe';
 
   -- ====================================================================
-  -- 2d. Criar tabela messages em public (para langchain)
+  -- 2e. Criar tabela messages em public (para langchain)
   -- ====================================================================
   EXECUTE format($f$
     CREATE TABLE IF NOT EXISTS public.%I (
@@ -390,13 +404,14 @@ BEGIN
   RAISE NOTICE 'Schema % setup completo! ✅', v_schema;
   RAISE NOTICE '========================================';
   RAISE NOTICE 'Tabelas criadas:';
-  RAISE NOTICE '  - schema_v3.cliques_landing';
-  RAISE NOTICE '  - schema_v3.conversas_leads';
-  RAISE NOTICE '  - schema_v3.orcamentos';
+  RAISE NOTICE '  - schema_v3.cliques_landing (rastreamento LP)';
+  RAISE NOTICE '  - schema_v3.configuracoes (API keys e settings)';
+  RAISE NOTICE '  - schema_v3.conversas_leads (CRM)';
+  RAISE NOTICE '  - schema_v3.orcamentos (conversões/vendas)';
   RAISE NOTICE '  - public.schema_v3_messages (langchain)';
   RAISE NOTICE '';
   RAISE NOTICE 'RPCs: 6 funções criadas';
-  RAISE NOTICE 'Índices: 7 índices criados';
+  RAISE NOTICE 'Índices: 8 índices criados';
   RAISE NOTICE '';
   RAISE NOTICE 'Próximo passo: Teste a landing page + n8n webhook!';
   RAISE NOTICE '========================================';
