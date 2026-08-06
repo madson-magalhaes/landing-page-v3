@@ -295,9 +295,9 @@ BEGIN
   -- ====================================================================
   -- 11. ALTER DEFAULT PRIVILEGES (para funções/tabelas futuras)
   -- ====================================================================
-  EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon, authenticated, service_role', v_schema);
-  EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated, service_role', v_schema);
-  EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role', v_schema);
+  EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || v_schema || ' GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon, authenticated, service_role';
+  EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || v_schema || ' GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated, service_role';
+  EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || v_schema || ' GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role';
   RAISE NOTICE 'Permissões padrão definidas para objetos futuros';
 
   -- ====================================================================
