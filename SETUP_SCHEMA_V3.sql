@@ -284,13 +284,21 @@ BEGIN
   RAISE NOTICE 'RPC contar_conversao_funil criada';
 
   -- ====================================================================
-  -- 10. Grant permissions
+  -- 10. Grant permissions (tabelas + funções existentes)
   -- ====================================================================
   EXECUTE format('GRANT USAGE ON SCHEMA %I TO anon, authenticated, service_role', v_schema);
   EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %I TO anon, authenticated, service_role', v_schema);
   EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %I TO anon, authenticated, service_role', v_schema);
   EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA %I TO anon, authenticated, service_role', v_schema);
-  RAISE NOTICE 'Permissões concedidas';
+  RAISE NOTICE 'Permissões concedidas para tabelas/funções existentes';
+
+  -- ====================================================================
+  -- 11. ALTER DEFAULT PRIVILEGES (para funções/tabelas futuras)
+  -- ====================================================================
+  EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon, authenticated, service_role', v_schema);
+  EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated, service_role', v_schema);
+  EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA %I GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role', v_schema);
+  RAISE NOTICE 'Permissões padrão definidas para objetos futuros';
 
   -- ====================================================================
   -- Done!
