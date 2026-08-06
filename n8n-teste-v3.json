@@ -1,0 +1,396 @@
+{
+  "name": "n8n-teste-v3-webhook-real",
+  "description": "Workflow de teste V3 com estrutura real da Z-API, validação temporal e Meta CAPI",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "testeMadson",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook_zapi",
+      "name": "Webhook Z-API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.0,
+      "position": [50, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrai dados da estrutura real da Z-API\nconst body = $node[\"Webhook Z-API\"].json.body || {};\n\nreturn {\n  chatlid: body.chatLid || '',\n  telefone: (body.phone || '').replace(/\\D/g, ''),\n  nome: body.senderName || '',\n  mensagem: body.text?.message || '',\n  momment: body.momment || Date.now(),\n  adContext: body.adContext || {}\n};"
+      },
+      "id": "extrair_dados_zapi",
+      "name": "Extrair Dados Z-API",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1.0,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "host": "{{ $env.SUPABASE_URL }}",
+        "authentication": "bearerToken",
+        "credentials": {
+          "bearerToken": "{{ $env.SUPABASE_ANON_KEY }}"
+        },
+        "method": "POST",
+        "path": "/rest/v1/rpc/buscar_clique_orfao",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "p_chatlid",
+              "value": "{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "buscar_clique_orfao",
+      "name": "Buscar Clique Orfão (timing + chatlid)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "{{ $node[\"Buscar Clique Orfão (timing + chatlid)\"].json[0] }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "id": "clique_encontrado",
+      "name": "Clique Encontrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1.0,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tracking = $node[\"Buscar Clique Orfão (timing + chatlid)\"].json[0] || {};\nconst chatlid = $node[\"Extrair Dados Z-API\"].json.chatlid;\n\n// Se chegou aqui = clique foi encontrado\nreturn {\n  ref_id: tracking.ref_id,\n  fbclid: tracking.fbclid,\n  fbc: tracking.fbc,\n  fbp: tracking.fbp,\n  utm_campaign: tracking.utm_campaign,\n  fbclid_existe: tracking.fbclid_existe,\n  match_qual: tracking.match_qual || 'desconhecido'\n};"
+      },
+      "id": "extrair_tracking",
+      "name": "Extrair Dados de Tracking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1.0,
+      "position": [850, 100]
+    },
+    {
+      "parameters": {
+        "host": "{{ $env.SUPABASE_URL }}",
+        "authentication": "bearerToken",
+        "credentials": {
+          "bearerToken": "{{ $env.SUPABASE_ANON_KEY }}"
+        },
+        "method": "POST",
+        "path": "/rest/v1/rpc/registrar_match_clique",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "p_ref_id",
+              "value": "{{ $node[\"Extrair Tracking\"].json.ref_id }}"
+            },
+            {
+              "name": "p_telefone",
+              "value": "{{ $node[\"Extrair Dados Z-API\"].json.telefone }}"
+            },
+            {
+              "name": "p_session_id",
+              "value": "{{ $node[\"Extrair Dados Z-API\"].json.chatlid }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "registrar_match",
+      "name": "Registrar Match no Cliques",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar se é tráfego pago (fbclid_existe = true)\nconst tracking = $node[\"Extrair Tracking\"].json || {};\n\nif (!tracking.fbclid_existe) {\n  console.log('🌐 Tráfego ORGÂNICO - NÃO enviará para Meta CAPI');\n  return { skipped: true, motivo: 'trafego_organico' };\n}\n\nconsole.log('💰 Tráfego PAGO - Enviará para Meta CAPI');\nreturn { skipped: false };"
+      },
+      "id": "validar_fbclid",
+      "name": "Validar: É Tráfego Pago?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1.0,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "{{ $node[\"Validar: É Tráfego Pago?\"].json.skipped }}",
+              "operation": "equals",
+              "value2": false
+            }
+          ]
+        }
+      },
+      "id": "condicional_capi",
+      "name": "Enviar para Meta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1.0,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// SHA256 em JS puro\nfunction sha256(str) {\n  var utf8Encode = new TextEncoder();\n  var hashBuffer = crypto.subtle.digest('SHA-256', utf8Encode.encode(str));\n  var hashArray = Array.from(new Uint8Array(hashBuffer));\n  var hashHex = hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');\n  return hashHex;\n}\n\nconst telefone_normalizado = $node[\"Extrair Dados Z-API\"].json.telefone.toLowerCase();\nconst telefone_hash = sha256(telefone_normalizado);\nconst tracking = $node[\"Extrair Tracking\"].json || {};\n\nreturn {\n  event_name: \"InitiateCheckout\",\n  event_time: Math.floor(Date.now() / 1000),\n  user_data: {\n    ph: telefone_hash,\n    ...(tracking.fbc && { fbc: tracking.fbc }),\n    ...(tracking.fbp && { fbp: tracking.fbp })\n  },\n  custom_data: {\n    content_name: `Checkout de ${$node[\"Extrair Dados Z-API\"].json.nome || 'Lead'}`\n  },\n  action_source: \"website\"\n};"
+      },
+      "id": "preparar_checkout",
+      "name": "Preparar CAPI InitiateCheckout",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1.0,
+      "position": [1450, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// SHA256 em JS puro\nfunction sha256(str) {\n  var utf8Encode = new TextEncoder();\n  var hashBuffer = crypto.subtle.digest('SHA-256', utf8Encode.encode(str));\n  var hashArray = Array.from(new Uint8Array(hashBuffer));\n  var hashHex = hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');\n  return hashHex;\n}\n\nconst telefone_normalizado = $node[\"Extrair Dados Z-API\"].json.telefone.toLowerCase();\nconst telefone_hash = sha256(telefone_normalizado);\nconst tracking = $node[\"Extrair Tracking\"].json || {};\n\nreturn {\n  event_name: \"Purchase\",\n  event_time: Math.floor(Date.now() / 1000),\n  user_data: {\n    ph: telefone_hash,\n    ...(tracking.fbc && { fbc: tracking.fbc }),\n    ...(tracking.fbp && { fbp: tracking.fbp })\n  },\n  custom_data: {\n    value: 15000,\n    currency: \"BRL\",\n    content_name: `Purchase de ${$node[\"Extrair Dados Z-API\"].json.nome || 'Lead'}`\n  },\n  action_source: \"website\"\n};"
+      },
+      "id": "preparar_purchase",
+      "name": "Preparar CAPI Purchase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1.0,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "host": "https://graph.facebook.com/v18.0",
+        "method": "POST",
+        "path": "/{{ $env.META_PIXEL_ID }}/events",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "[{{ json.stringify($node[\"Preparar CAPI InitiateCheckout\"].json) }}]"
+            },
+            {
+              "name": "access_token",
+              "value": "{{ $env.META_CAPI_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "enviar_checkout_capi",
+      "name": "Enviar CAPI InitiateCheckout",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1650, 100]
+    },
+    {
+      "parameters": {
+        "host": "https://graph.facebook.com/v18.0",
+        "method": "POST",
+        "path": "/{{ $env.META_PIXEL_ID }}/events",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "[{{ json.stringify($node[\"Preparar CAPI Purchase\"].json) }}]"
+            },
+            {
+              "name": "access_token",
+              "value": "{{ $env.META_CAPI_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "enviar_purchase_capi",
+      "name": "Enviar CAPI Purchase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "responseBody": "{\"ok\": true, \"ref_id\": \"{{ $node[\"Extrair Tracking\"].json.ref_id }}\", \"fbclid_existe\": {{ $node[\"Extrair Tracking\"].json.fbclid_existe }}, \"match_qual\": \"{{ $node[\"Extrair Tracking\"].json.match_qual }}\"}"
+      },
+      "id": "response_success",
+      "name": "Response Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.0,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "responseBody": "{\"ok\": false, \"motivo\": \"clique_nao_encontrado\"}"
+      },
+      "id": "response_erro",
+      "name": "Response Clique Não Encontrado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.0,
+      "position": [850, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Z-API": {
+      "main": [
+        [
+          {
+            "node": "Extrair Dados Z-API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Dados Z-API": {
+      "main": [
+        [
+          {
+            "node": "Buscar Clique Orfão (timing + chatlid)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Clique Orfão (timing + chatlid)": {
+      "main": [
+        [
+          {
+            "node": "Clique Encontrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clique Encontrado?": {
+      "main": [
+        [
+          {
+            "node": "Extrair Tracking",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Registrar Match no Cliques",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response Clique Não Encontrado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Tracking": {
+      "main": [
+        [
+          {
+            "node": "Validar: É Tráfego Pago?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Match no Cliques": {
+      "main": [
+        [
+          {
+            "node": "Validar: É Tráfego Pago?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar: É Tráfego Pago?": {
+      "main": [
+        [
+          {
+            "node": "Enviar para Meta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar para Meta?": {
+      "main": [
+        [
+          {
+            "node": "Preparar CAPI InitiateCheckout",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar CAPI Purchase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar CAPI InitiateCheckout": {
+      "main": [
+        [
+          {
+            "node": "Enviar CAPI InitiateCheckout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar CAPI Purchase": {
+      "main": [
+        [
+          {
+            "node": "Enviar CAPI Purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar CAPI InitiateCheckout": {
+      "main": [
+        [
+          {
+            "node": "Response Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar CAPI Purchase": {
+      "main": [
+        [
+          {
+            "node": "Response Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  ]
+}
