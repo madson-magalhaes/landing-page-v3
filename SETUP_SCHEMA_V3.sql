@@ -331,7 +331,7 @@ BEGIN
       END IF;
     END;
     $FUNC$ LANGUAGE plpgsql;
-  $f$, v_schema, v_schema, v_schema);
+  $f$, v_schema, v_schema, v_schema, v_schema);
   RAISE NOTICE 'RPC buscar_clique_orfao criada';
 
   -- ====================================================================
