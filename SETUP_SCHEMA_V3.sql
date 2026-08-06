@@ -221,11 +221,13 @@ BEGIN
 
   -- ====================================================================
   -- 6. RPC: buscar_clique_orfao (para n8n matching)
+  -- Estratégia: Timing de 2min + validação que chatlid é novo (dupla verificação)
   -- ====================================================================
   EXECUTE format($f$
     CREATE OR REPLACE FUNCTION %I.buscar_clique_orfao(
-      p_telefone TEXT,
-      p_minutos_atras INT DEFAULT 15
+      p_chatlid TEXT,
+      p_minutos_atras_tight INT DEFAULT 2,
+      p_minutos_atras_fallback INT DEFAULT 5
     )
     RETURNS TABLE (
       ref_id TEXT,
@@ -239,34 +241,65 @@ BEGIN
       utm_term TEXT,
       utm_id TEXT,
       fbclid_existe BOOLEAN,
-      created_at TIMESTAMPTZ
+      created_at TIMESTAMPTZ,
+      match_qual VARCHAR
     ) AS $FUNC$
     BEGIN
-      RETURN QUERY
-      SELECT
-        cl.ref_id,
-        cl.fbclid,
-        cl.fbc,
-        cl.fbp,
-        cl.utm_source,
-        cl.utm_medium,
-        cl.utm_campaign,
-        cl.utm_content,
-        cl.utm_term,
-        cl.utm_id,
-        (cl.fbclid IS NOT NULL) as fbclid_existe,
-        cl.created_at
-      FROM %I.cliques_landing cl
-      WHERE
-        cl.clicou_wpp_at IS NOT NULL
-        AND cl.session_id IS NULL
-        AND cl.telefone IS NULL
-        AND cl.created_at >= NOW() - (p_minutos_atras || ' minutes')::INTERVAL
-      ORDER BY cl.created_at DESC
-      LIMIT 1;
+      -- Verificar: este chatlid JÁ existe em conversas_leads? (se sim, é recorrente)
+      IF EXISTS(SELECT 1 FROM %I.conversas_leads WHERE chatlid = p_chatlid LIMIT 1) THEN
+        -- Lead recorrente: buscar com janela maior (até 5min para dar mais tempo)
+        RETURN QUERY
+        SELECT
+          cl.ref_id,
+          cl.fbclid,
+          cl.fbc,
+          cl.fbp,
+          cl.utm_source,
+          cl.utm_medium,
+          cl.utm_campaign,
+          cl.utm_content,
+          cl.utm_term,
+          cl.utm_id,
+          (cl.fbclid IS NOT NULL) as fbclid_existe,
+          cl.created_at,
+          'recorrente_5min'::VARCHAR as match_qual
+        FROM %I.cliques_landing cl
+        WHERE
+          cl.clicou_wpp_at IS NOT NULL
+          AND cl.session_id IS NULL
+          AND cl.telefone IS NULL
+          AND cl.created_at >= NOW() - (p_minutos_atras_fallback || ' minutes')::INTERVAL
+        ORDER BY cl.created_at DESC
+        LIMIT 1;
+      ELSE
+        -- Lead novo: janela apertada de 2min (cliente vendo anúncio novo)
+        RETURN QUERY
+        SELECT
+          cl.ref_id,
+          cl.fbclid,
+          cl.fbc,
+          cl.fbp,
+          cl.utm_source,
+          cl.utm_medium,
+          cl.utm_campaign,
+          cl.utm_content,
+          cl.utm_term,
+          cl.utm_id,
+          (cl.fbclid IS NOT NULL) as fbclid_existe,
+          cl.created_at,
+          'novo_2min'::VARCHAR as match_qual
+        FROM %I.cliques_landing cl
+        WHERE
+          cl.clicou_wpp_at IS NOT NULL
+          AND cl.session_id IS NULL
+          AND cl.telefone IS NULL
+          AND cl.created_at >= NOW() - (p_minutos_atras_tight || ' minutes')::INTERVAL
+        ORDER BY cl.created_at DESC
+        LIMIT 1;
+      END IF;
     END;
     $FUNC$ LANGUAGE plpgsql;
-  $f$, v_schema, v_schema);
+  $f$, v_schema, v_schema, v_schema);
   RAISE NOTICE 'RPC buscar_clique_orfao criada';
 
   -- ====================================================================
