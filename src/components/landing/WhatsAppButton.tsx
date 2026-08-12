@@ -20,8 +20,9 @@ async function registrarClique(payload: CliqueWppPayload): Promise<void> {
   }
 }
 
-function buildWhatsAppUrl(): string {
-  return `https://wa.me/${config.whatsappNumber}?text=${encodeURIComponent(config.whatsappMessage)}`;
+function buildWhatsAppUrl(refId: string): string {
+  const message = config.whatsappMessage.replace(/{cupom}/g, refId);
+  return `https://wa.me/${config.whatsappNumber}?text=${encodeURIComponent(message)}`;
 }
 
 function readCookie(name: string): string | null {
@@ -58,7 +59,7 @@ export function WhatsAppButton() {
         setRedirecting(false);
         return;
       }
-      const url = buildWhatsAppUrl();
+      const url = buildWhatsAppUrl(refId);
       console.log("[clique] redirecionando para", url);
       window.location.href = url;
     });
